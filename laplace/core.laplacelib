@@ -1,0 +1,127 @@
+// Family-agnostic core Functions 
+
+//@laplace
+//@brief Mixture pointwise functions
+vector mixture_pointwise(matrix L, matrix log_theta){
+    int K = cols(L);
+    int N = rows(L);
+
+    vector[N] ln;
+    vector[K] scores;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            scores[k] = L[n, k] + log_theta[n, k];
+        }
+        ln[n] = log_sum_exp(scores); 
+    }
+    return ln;
+}
+
+vector mixture_pointwise(matrix L, vector log_theta){
+    int K = cols(L);
+    int N = rows(L);
+
+    vector[N] ln;
+    vector[K] scores;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            scores[k] = L[n, k] + log_theta[k];
+        }
+        ln[n] = log_sum_exp(scores);
+    }
+    return ln;
+}
+
+//@laplace
+//@brief Mixture Log Pointwise Density Function
+real mixture_lpdf(matrix L, matrix log_theta, vector y, real sigma){
+    int K = cols(L);
+    int N = rows(L);
+
+    real lp = 0;
+    vector[K] scores;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            scores[k] = L[n, k] + log_theta[n, k];
+        }
+        lp += log_sum_exp(scores);
+    }
+    return lp;
+}
+
+//@laplace
+//@brief Responsibilities
+matrix responsibilities(matrix L, matrix log_theta) {
+    int K = cols(L);
+    int N = rows(L);
+
+    matrix[N, K] r;
+
+    for (n in 1:N) {
+        vector[K] a_n;
+
+        for (k in 1:K) {
+            a_n[k] = log_theta[n, k] + L[n, k];
+        }
+        r[n] = softmax(a_n)';
+    }
+
+    return r;
+}
+
+matrix responsibilities(matrix L, vector log_theta) {
+    int K = cols(L);
+    int N = rows(L);
+
+    matrix[N, K] r;
+
+    for (n in 1:N) {
+        vector[K] a_n;
+
+        for (k in 1:K) {
+            a_n[k] = + L[n, k] + log_theta[k];
+        }
+        r[n] = softmax(a_n)';
+    }
+    return r;
+}
+
+
+//@laplace 
+//@brief Log Responsibilities
+matrix log_responsibilities(matrix L, matrix log_theta){
+    int K = cols(L);
+    int N = rows(L);
+
+    matrix[N, K] r;
+
+    for(n in 1:N){
+        vector[K] a_n;
+
+        for(k in 1:K){
+            a_n[k] = log_theta[n, k] + L[n, k]; 
+        }
+        r[n] = log_softmax(a_n)';
+    }
+    return r;
+}
+
+matrix log_responsibilities(matrix L, vector log_theta){
+    int K = cols(L);
+    int N = rows(L);
+
+    matrix[N, K] r;
+
+    for(n in 1:N){
+        vector[K] a_n;
+
+        for(k in 1:K){
+            a_n[k] = log_theta[k] + L[n, k]; 
+        }
+        r[n] = log_softmax(a_n)';
+    }
+    return r;
+}
