@@ -1,0 +1,27 @@
+name = "cluster"
+version = "0.1.0"
+exports = [
+    "sq_dist",
+    "kmeans_loglik",
+    "spherical_loglik",
+    "diag_loglik",
+    "mvn_chol_loglik",
+    "pois_lik",
+    "negbin_loglik",
+    "latent_class_loglik",
+    "multinomial_loglik",
+    "regression_loglik",
+    "mixture_pointwise",
+    "mixture_lpdf",
+    "responsibilities",
+    "log_responsibilities",
+    "mixture_ss_lpdf",
+    "lda_lpmf",
+    "assign_rng",
+    "map_assign",
+    "assignment_entropy",
+    "complete_loglik",
+    "coclustering",
+    "stick_breaking_log_weights",
+    "softmax_log_weights",
+]
