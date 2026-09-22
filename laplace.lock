@@ -1,0 +1,8 @@
+root = ["cluster"]
+
+[[package]]
+name = "cluster"
+version = "0.1.0"
+checksum = "sha256:3f68e532f3f0af576521edad3e8420f93b6c9438817b12de53b8d3b286187670"
+source = "git+https://github.com/mlatinov/laplace-cluster@0.1.0#laplace"
+dependencies = []
