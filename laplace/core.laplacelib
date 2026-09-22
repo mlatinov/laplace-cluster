@@ -1,7 +1,13 @@
-// Family-agnostic core Functions 
+// Family-agnostic core Functions
 
 //@laplace
-//@brief Mixture pointwise functions
+//@brief Pointwise marginal log-likelihood of a mixture, per observation.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta N x K matrix of observation-specific log-weights, log_theta[n,k] = log theta_{nk}
+//@math \ell_n = \log\sum_{k=1}^{K}\exp\big(\log\theta_{nk} + L_{nk}\big)
+//@return length-N vector, the pointwise log-likelihood ln for each observation
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example vector[N] ln = mixture_pointwise(L, log_Theta); // covariate-dependent weights
 vector mixture_pointwise(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
@@ -18,6 +24,14 @@ vector mixture_pointwise(matrix L, matrix log_theta){
     return ln;
 }
 
+//@laplace
+//@brief Pointwise marginal log-likelihood of a mixture, per observation, shared weights.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta length-K vector of log mixing weights, log_theta[k] = log theta_k, shared across observations
+//@math \ell_n = \log\sum_{k=1}^{K}\exp\big(\log\theta_k + L_{nk}\big)
+//@return length-N vector, the pointwise log-likelihood ln for each observation
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example vector[N] ln = mixture_pointwise(L, log(theta));
 vector mixture_pointwise(matrix L, vector log_theta){
     int K = cols(L);
     int N = rows(L);
@@ -35,8 +49,14 @@ vector mixture_pointwise(matrix L, vector log_theta){
 }
 
 //@laplace
-//@brief Mixture Log Pointwise Density Function
-real mixture_lpdf(matrix L, matrix log_theta, vector y, real sigma){
+//@brief Mixture log-likelihood, summed over all observations, covariate-dependent weights.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta N x K matrix of observation-specific log-weights, log_theta[n,k] = log theta_{nk}
+//@math \log p(\mathbf Y \mid \theta, \phi) = \sum_{n=1}^{N} \log\sum_{k=1}^{K}\exp\big(\log\theta_{nk} + L_{nk}\big)
+//@return scalar total log-likelihood, sum of mixture_pointwise(L, log_theta)
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example target += mixture_lpdf(L, log_Theta);
+real mixture_lpdf(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -53,7 +73,37 @@ real mixture_lpdf(matrix L, matrix log_theta, vector y, real sigma){
 }
 
 //@laplace
-//@brief Responsibilities
+//@brief Mixture log-likelihood, summed over all observations, shared weights.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta length-K vector of log mixing weights, log_theta[k] = log theta_k
+//@math \log p(\mathbf Y \mid \theta, \phi) = \sum_{n=1}^{N} \log\sum_{k=1}^{K}\exp\big(\log\theta_k + L_{nk}\big)
+//@return scalar total log-likelihood, sum of mixture_pointwise(L, log_theta)
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example target += mixture_lpdf(L, log(theta));
+real mixture_lpdf(matrix L, vector log_theta){
+    int K = cols(L);
+    int N = rows(L);
+
+    real lp = 0;
+    vector[K] scores;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            scores[k] = L[n, k] + log_theta[k];
+        }
+        lp += log_sum_exp(scores);
+    }
+    return lp;
+}
+
+//@laplace
+//@brief Posterior cluster-membership probabilities (responsibilities), covariate-dependent weights.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta N x K matrix of observation-specific log-weights, log_theta[n,k] = log theta_{nk}
+//@math r_{nk} = \frac{\exp(\log\theta_{nk} + L_{nk})}{\sum_{j=1}^{K}\exp(\log\theta_{nj} + L_{nj})}
+//@return N x K matrix, each row a simplex over the K clusters
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example matrix[N, K] R = responsibilities(L, log_Theta);
 matrix responsibilities(matrix L, matrix log_theta) {
     int K = cols(L);
     int N = rows(L);
@@ -72,6 +122,14 @@ matrix responsibilities(matrix L, matrix log_theta) {
     return r;
 }
 
+//@laplace
+//@brief Posterior cluster-membership probabilities (responsibilities), shared weights.
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta length-K vector of log mixing weights, log_theta[k] = log theta_k
+//@math r_{nk} = \frac{\exp(\log\theta_k + L_{nk})}{\sum_{j=1}^{K}\exp(\log\theta_j + L_{nj})}
+//@return N x K matrix, each row a simplex over the K clusters
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example matrix[N, K] R = responsibilities(L, log(theta));
 matrix responsibilities(matrix L, vector log_theta) {
     int K = cols(L);
     int N = rows(L);
@@ -82,16 +140,21 @@ matrix responsibilities(matrix L, vector log_theta) {
         vector[K] a_n;
 
         for (k in 1:K) {
-            a_n[k] = + L[n, k] + log_theta[k];
+            a_n[k] = L[n, k] + log_theta[k];
         }
         r[n] = softmax(a_n)';
     }
     return r;
 }
 
-
-//@laplace 
-//@brief Log Responsibilities
+//@laplace
+//@brief Log responsibilities, covariate-dependent weights (numerically stable form of log(R)).
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta N x K matrix of observation-specific log-weights, log_theta[n,k] = log theta_{nk}
+//@math \log r_{nk} = \log\theta_{nk} + L_{nk} - \log\sum_{j=1}^{K}\exp(\log\theta_{nj} + L_{nj})
+//@return N x K matrix of log responsibilities, each row log-sums to 0
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example matrix[N, K] log_R = log_responsibilities(L, log_Theta);
 matrix log_responsibilities(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
@@ -109,6 +172,14 @@ matrix log_responsibilities(matrix L, matrix log_theta){
     return r;
 }
 
+//@laplace
+//@brief Log responsibilities, shared weights (numerically stable form of log(R)).
+//@param L N x K matrix of component log-densities, L[n,k] = log f(y_n | phi_k)
+//@param log_theta length-K vector of log mixing weights, log_theta[k] = log theta_k
+//@math \log r_{nk} = \log\theta_k + L_{nk} - \log\sum_{j=1}^{K}\exp(\log\theta_j + L_{nj})
+//@return N x K matrix of log responsibilities, each row log-sums to 0
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
+//@example matrix[N, K] log_R = log_responsibilities(L, log(theta));
 matrix log_responsibilities(matrix L, vector log_theta){
     int K = cols(L);
     int N = rows(L);
