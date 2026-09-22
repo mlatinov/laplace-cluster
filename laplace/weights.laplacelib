@@ -1,0 +1,36 @@
+
+//@laplace
+//@brief Stick-breaking log weights
+vector stick_breaking_log_weights(vector v) {
+    int K = num_elements(v) + 1;
+    vector[K] log_theta;
+    real remaining = 0;
+
+    for (k in 1:(K - 1)) {
+        log_theta[k] = log(v[k]) + remaining;
+        remaining += log1m(v[k]);
+    }
+
+    log_theta[K] = remaining;
+
+    return log_theta;
+}
+
+//@laplace 
+//@brief Softmax log weights
+matrix softmax_log_weights(matrix X, matrix G) {
+    int N = rows(X);
+    int K = cols(G) + 1;
+
+    matrix[N, K] eta;
+    matrix[N, K] log_theta;
+
+    eta[, 1:(K - 1)] = X * G;
+
+    for (n in 1:N) {
+        eta[n, K] = 0;
+        log_theta[n, 1:K] = eta[n, 1:K]- log_sum_exp(eta[n, 1:K]);
+    }
+    
+    return log_theta;
+}
