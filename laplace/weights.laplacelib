@@ -4,7 +4,7 @@
 //@param v length-(K-1) vector of break proportions in (0,1); K is inferred as num_elements(v) + 1
 //@math \log\theta_k = \log v_k + \sum_{j<k}\log(1-v_j), \qquad \log\theta_K = \sum_{j<K}\log(1-v_j)
 //@return length-K vector of log mixing weights, log-sums to 0
-//@example vector[K-1] v; vector[K] log_theta = stick_breaking_log_weights(v);
+//@example vector[K-1] v; vector[K] log_theta = cluster::stick_breaking_log_weights(v);
 vector stick_breaking_log_weights(vector v) {
     int K = num_elements(v) + 1;
     vector[K] log_theta;
@@ -26,7 +26,7 @@ vector stick_breaking_log_weights(vector v) {
 //@param G P x (K-1) matrix of coefficients for the first K-1 classes; K is inferred as cols(G) + 1
 //@math \log\theta_{nk} = \tilde\eta_{nk} - \log\sum_{j=1}^{K}\exp(\tilde\eta_{nj}), \qquad \tilde\eta_{nK} = 0
 //@return N x K matrix of observation-specific log mixing weights, each row log-sums to 0
-//@example matrix[N, K] log_Theta = softmax_log_weights(X, G);
+//@example matrix[N, K] log_Theta = cluster::softmax_log_weights(X, G);
 matrix softmax_log_weights(matrix X, matrix G) {
     int N = rows(X);
     int K = cols(G) + 1;

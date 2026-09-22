@@ -6,7 +6,7 @@
 //@param z length-N integer array of labels; z[n] = 0 means unlabeled, z[n] in {1,...,K} means known cluster
 //@math \sum_{n:\,z_n>0}\left(\log\theta_{z_n} + L_{n z_n}\right) + \sum_{n:\,z_n=0}\log\sum_{k}\exp\left(\log\theta_k + L_{nk}\right)
 //@return scalar log-likelihood; reduces to mixture_lpdf(L, log_theta) when all z[n]=0
-//@example target += mixture_ss_lpdf(L, log(theta), z);
+//@example target += cluster::mixture_ss_lpdf(L, log(theta), z);
 real mixture_ss_lpdf(matrix L, vector log_theta, array[] int z) {
     int N = rows(L);
     int K = cols(L);
@@ -34,7 +34,7 @@ real mixture_ss_lpdf(matrix L, vector log_theta, array[] int z) {
 //@param z length-N integer array of labels; z[n] = 0 means unlabeled, z[n] in {1,...,K} means known cluster
 //@math \sum_{n:\,z_n>0}\left(\log\theta_{n z_n} + L_{n z_n}\right) + \sum_{n:\,z_n=0}\log\sum_{k}\exp\left(\log\theta_{nk} + L_{nk}\right)
 //@return scalar log-likelihood; reduces to mixture_lpdf(L, log_theta) when all z[n]=0
-//@example target += mixture_ss_lpdf(L, log_Theta, z);
+//@example target += cluster::mixture_ss_lpdf(L, log_Theta, z);
 real mixture_ss_lpdf(matrix L, matrix log_theta, array[] int z) {
     int N = rows(L);
     int K = cols(L);
@@ -62,7 +62,7 @@ real mixture_ss_lpdf(matrix L, matrix log_theta, array[] int z) {
 //@param Phi K x V matrix, each row a simplex over words (topic-word distribution)
 //@math \sum_{m=1}^{M}\sum_{v=1}^{V} y_{mv}\log\Big(\sum_{k=1}^{K}\theta_{mk}\,\phi_{kv}\Big)
 //@return scalar log-likelihood; multinomial coefficients dropped (don't affect Theta/Phi inference)
-//@example target += lda_lpmf(Y | Theta, Phi);
+//@example target += cluster::lda_lpmf(Y | Theta, Phi);
 real lda_lpmf(array[,] int Y, matrix Theta, matrix Phi){
     int M = size(Y);
     int V = size(Y[1]);

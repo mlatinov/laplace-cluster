@@ -3,7 +3,7 @@
 //@param R N x K matrix of responsibilities, each row a simplex (see responsibilities)
 //@math z_n \sim \text{Categorical}(r_{n\cdot})
 //@return length-N integer array of sampled cluster labels in {1,...,K}
-//@example array[N] int z = assign_rng(R);
+//@example array[N] int z = cluster::assign_rng(R);
 array[] int assign_rng(matrix R){
     int N = rows(R);
     array[N] int z;
@@ -18,7 +18,7 @@ array[] int assign_rng(matrix R){
 //@param R N x K matrix of responsibilities, each row a simplex (see responsibilities)
 //@math \hat z_n = \arg\max_k r_{nk}
 //@return length-N integer array of cluster labels in {1,...,K}; ties keep the lowest index
-//@example array[N] int z_hat = map_assign(R);
+//@example array[N] int z_hat = cluster::map_assign(R);
 array[] int map_assign(matrix R){
     int N = rows(R);
     array[N] int z;
@@ -38,7 +38,7 @@ array[] int map_assign(matrix R){
 //@param R N x K matrix of responsibilities, each row a simplex (see responsibilities)
 //@math H_n = -\sum_{k=1}^{K} r_{nk}\log r_{nk}
 //@return length-N vector, H_n in [0, log K]; divide by log(K) for a [0,1]-scaled version
-//@example vector[N] H = assignment_entropy(R);
+//@example vector[N] H = cluster::assignment_entropy(R);
 vector assignment_entropy(matrix R){
     int N = rows(R);
     int K = cols(R);
@@ -60,7 +60,7 @@ vector assignment_entropy(matrix R){
 //@param log_theta length-K vector of log mixing weights
 //@math \sum_{n}\sum_{k} r_{nk}\left(\log\theta_k + L_{nk}\right) = \sum_n \ell_n - \sum_n H_n
 //@return scalar; equals mixture_lpdf(L, log_theta) minus the total assignment entropy
-//@example real cll = complete_loglik(R, L, log(theta));
+//@example real cll = cluster::complete_loglik(R, L, log(theta));
 real complete_loglik(matrix R, matrix L, vector log_theta){
     int N = rows(R);
     int K = cols(R);
@@ -81,7 +81,7 @@ real complete_loglik(matrix R, matrix L, vector log_theta){
 //@param log_theta N x K matrix of observation-specific log mixing weights
 //@math \sum_{n}\sum_{k} r_{nk}\left(\log\theta_{nk} + L_{nk}\right) = \sum_n \ell_n - \sum_n H_n
 //@return scalar; equals mixture_lpdf(L, log_theta) minus the total assignment entropy
-//@example real cll = complete_loglik(R, L, log_Theta);
+//@example real cll = cluster::complete_loglik(R, L, log_Theta);
 real complete_loglik(matrix R, matrix L, matrix log_theta){
     int N = rows(R);
     int K = cols(R);
@@ -100,7 +100,7 @@ real complete_loglik(matrix R, matrix L, matrix log_theta){
 //@param R N x K matrix of responsibilities, each row a simplex (see responsibilities)
 //@math S_{ij} = \sum_{k=1}^{K} r_{ik}\,r_{jk}
 //@return N x N matrix, symmetric, diagonal equal to 1, label-switching invariant; O(N^2) memory, save R and compute this outside Stan for large N
-//@example matrix[N, N] S = coclustering(R);
+//@example matrix[N, N] S = cluster::coclustering(R);
 matrix coclustering(matrix R){
     return R * R';
 }
