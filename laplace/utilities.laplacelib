@@ -1,0 +1,64 @@
+
+//@laplace
+//@brief Assign cluster, random draw per observation
+array[] int assign_rng(matrix R){
+    int N = rows(R);
+    array[N] int z;
+    for (n in 1:N) {
+        z[n] = categorical_rng(R[n]');
+    }
+    return z;
+}
+
+//@laplace
+//@brief Assign cluster, most likely per observation
+array[] int map_assign(matrix R){
+    int N = rows(R);
+    array[N] int z;
+    for (n in 1:N) {
+        z[n] = 1;
+        for (k in 2:cols(R)) {
+            if (R[n, k] > R[n, z[n]]) {
+                z[n] = k;
+            }
+        }
+    }
+    return z;
+}
+
+//@laplace 
+//@brief Assign entropy
+vector assignment_entropy(matrix R){
+    int N = rows(R);
+    int K = cols(R);
+
+    vector[N] H;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            H[n] += -(R[n,k] * log(R[n, k])); 
+        }
+    }
+    return H;
+}
+
+//@laplace
+//@brief Complete-data log-likelihood (ICL-style criterion)
+real complete_loglik(matrix R, matrix L, vector log_theta){
+    int N = rows(R);
+    int K = cols(R);
+    real out = 0;
+
+    for (n in 1:N) {
+        for (k in 1:K) {
+            out += R[n, k] * (log_theta[k] + L[n, k]);
+        }
+    }
+    return out;
+}
+
+//@laplace
+//@brief Co-clustering probability matrix
+matrix coclustering(matrix R){
+    return R * R';
+}
