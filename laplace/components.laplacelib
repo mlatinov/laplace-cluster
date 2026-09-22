@@ -1,0 +1,222 @@
+
+//Each function returns the N × K matrix L of component log-densities
+
+//@laplace 
+//@brief Square Distance 
+matrix sq_dist(matrix y, matrix mu) {
+    int N = rows(y);
+    int K = rows(mu);
+
+    vector[N] rho;
+    vector[K] kappa;
+
+    for (n in 1:N) rho[n]   = dot_self(y[n]');
+    for (k in 1:K) kappa[k] = dot_self(mu[k]');
+
+    return rep_matrix(rho, K) + rep_matrix(kappa', N) - 2 * y * mu';
+}
+
+//@laplace 
+//@brief Kmeans loglik
+matrix kmeans_loglik(matrix y, matrix mu, real beta){
+    int N = rows(y);
+    int K = rows(mu);
+    
+    // Get the square distance
+    matrix[N, K] sq = sq_dist(y, mu);
+    return -(beta / 2) * sq;
+}
+
+//@laplace 
+//@brief Spherical loglik
+matrix spherical_loglik(matrix y, matrix mu, vector sd){
+    int N = rows(y);
+    int K = rows(mu);
+    int D = cols(y);
+
+    matrix[N, K] L;
+    matrix[N, K] sq = sq_dist(y, mu);
+
+    for(n in 1:N){
+        for(k in 1:K){
+            L[n, k] = -D * log(sd[k]) - (sq[n, k] / (2 * square(sd[k]))) - (D / 2) * log(2 * pi());
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Diagonal loglik
+matrix diag_loglik(matrix y, matrix mu, matrix S) {
+    int N = rows(y);
+    int K = rows(mu);
+    int D = cols(y);
+
+    matrix[N, K] L;
+
+    for (n in 1:N) {
+        for (k in 1:K) {
+            L[n, k] = 0;
+
+            for (d in 1:D) {
+                L[n, k] += normal_lpdf(y[n, d] | mu[k, d], S[k, d]);
+            }
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Multivariate Normal Cholesky Log Likelihood
+matrix mvn_chol_loglik(matrix y, matrix mu, array[] matrix C){
+    int N = rows(y);
+    int K = rows(mu);
+    int D = cols(y);
+
+    matrix[N, K] L;
+
+    for (n in 1:N) {
+        for (k in 1:K) {
+            vector[D] residual;
+            vector[D] z;
+            real log_det_C;
+
+            // residual
+            residual = (y[n] - mu[k])';
+            z        = mdivide_left_tri_low(C[k], residual);
+
+            // sum(log(diagonal(C[k])))
+            log_det_C = 0;
+            for (d in 1:D) log_det_C += log(C[k, d, d]);
+            
+            L[n, k] = -0.5 * D * log(2 * pi()) - log_det_C - 0.5 * dot_self(z);
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Pois Loglik
+matrix pois_lik(matrix y, matrix lambda){
+    int N = rows(y);
+    int D = cols(y);
+    int K = rows(lambda);
+
+    matrix[N, K] L;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            // Initialize L 
+            L[n, k] = 0;
+
+            for(d in 1:D){
+                real delta_lambda = y[n, d] * log(lambda[k, d]) - lambda[k, d]; // Get the delta lambda
+                real fgamma_y = lgamma(y[n, d] + 1);                            // Apply the gamma function for the -log of the matrix outcome + 1
+                L[n, k] += delta_lambda - fgamma_y;                             // Accumulate the results D times
+            }
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Negative Binomial loglik
+matrix negbin_loglik(matrix y, matrix mu, vector psi){
+    int N = rows(y);
+    int K = num_elements(psi);
+    int D = cols(y);
+
+    matrix[N, K] L;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            L[n, k] = 0; 
+            real ng_psi_k = lgamma(psi[k]);
+
+            for(d in 1:D){
+                // Calc Primaries
+                real y_gp = lgamma(y[n, d] + psi[k]); // Y-Psi mean precision 
+                real y_p  = lgamma(y[n, d] + 1);      // Y-precision 
+                real mu_psi_p = mu[k ,d] + psi[k];    // Mu-Psi Precision
+
+                // Accumulate
+                L[n , k] += y_gp - ng_psi_k - y_p + y[n, d] * log(mu[k, d] / mu_psi_p) + psi[k] * log(psi[k] / mu_psi_p);
+            }
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Latent Class loglik
+matrix latent_class_loglik(matrix y, matrix p, matrix m){
+    int N = rows(y);
+    int J = cols(y);
+    int K = rows(p);
+
+    matrix[N, K] L;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            L[n, k] = 0;
+
+            for(j in 1:J){
+                // Get the Bracket expression for cleaner looking accumulation 
+                real bracket_term = y[n, j] * log(p[k, j]) + (1 - y[n, j]) * log(1 - p[k, j]);
+                // Accumulate to L
+                L[n, k] += m[n, j] * bracket_term;
+            }
+        }
+    }
+    return L;
+}
+
+//@laplace 
+//@brief Multinomial loglik
+matrix multinomial_loglik(matrix y, matrix phi) {
+    int N = rows(y);
+    int K = rows(phi);
+    int V = cols(phi);
+
+    matrix[N, K] L;
+
+    for (n in 1:N) {
+        // Initialize
+        real sum_nv = 0;
+        real log_prod_factorial = 0;
+
+        // Get the accumulated terms
+        for (v in 1:V) {
+            sum_nv += y[n, v];
+            log_prod_factorial += lgamma(y[n, v] + 1);
+        }
+
+        for (k in 1:K) {
+            L[n, k] = lgamma(sum_nv + 1) - log_prod_factorial;
+
+            for (v in 1:V) {
+                L[n, k] += y[n, v] * log(phi[k, v]);
+            }
+        }
+    }
+
+    return L;
+}
+
+//@laplace 
+//@brief Regression loglik
+matrix regression_loglik(vector y, matrix X, matrix B, vector sd){
+    int N = num_elements(y);
+    int K = cols(B);
+
+    // Get the mean mu from the XB
+    matrix[N, K] mu = X * B;
+    matrix[N, K] L;
+
+    for(n in 1:N){
+        for(k in 1:K){
+            L[n, k] = -log(sd[k]) - (0.5 * log(2 * pi())) - ((square(y[n] - mu[n, k])) / (2 * square(sd[k]))); 
+        }
+    }
+    return L;
+}
