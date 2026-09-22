@@ -1,6 +1,40 @@
 
-//@laplace 
-//@brief Semi-supervised mixture log-likelihood
+//@laplace
+//@brief Semi-supervised mixture log-likelihood: known labels contribute directly, unlabeled points are marginalized. Shared weights.
+//@param L N x K matrix of component log-densities
+//@param log_theta length-K vector of log mixing weights
+//@param z length-N integer array of labels; z[n] = 0 means unlabeled, z[n] in {1,...,K} means known cluster
+//@math \sum_{n:\,z_n>0}\left(\log\theta_{z_n} + L_{n z_n}\right) + \sum_{n:\,z_n=0}\log\sum_{k}\exp\left(\log\theta_k + L_{nk}\right)
+//@return scalar log-likelihood; reduces to mixture_lpdf(L, log_theta) when all z[n]=0
+//@example target += mixture_ss_lpdf(L, log(theta), z);
+real mixture_ss_lpdf(matrix L, vector log_theta, array[] int z) {
+    int N = rows(L);
+    int K = cols(L);
+    real lp = 0;
+
+    for (n in 1:N) {
+        if (z[n] > 0) {
+            lp += L[n, z[n]] + log_theta[z[n]];
+        } else {
+            vector[K] a;
+
+            for (k in 1:K)
+                a[k] = L[n,k] + log_theta[k];
+
+            lp += log_sum_exp(a);
+        }
+    }
+    return lp;
+}
+
+//@laplace
+//@brief Semi-supervised mixture log-likelihood: known labels contribute directly, unlabeled points are marginalized. Covariate-dependent weights.
+//@param L N x K matrix of component log-densities
+//@param log_theta N x K matrix of observation-specific log mixing weights
+//@param z length-N integer array of labels; z[n] = 0 means unlabeled, z[n] in {1,...,K} means known cluster
+//@math \sum_{n:\,z_n>0}\left(\log\theta_{n z_n} + L_{n z_n}\right) + \sum_{n:\,z_n=0}\log\sum_{k}\exp\left(\log\theta_{nk} + L_{nk}\right)
+//@return scalar log-likelihood; reduces to mixture_lpdf(L, log_theta) when all z[n]=0
+//@example target += mixture_ss_lpdf(L, log_Theta, z);
 real mixture_ss_lpdf(matrix L, matrix log_theta, array[] int z) {
     int N = rows(L);
     int K = cols(L);
@@ -18,16 +52,21 @@ real mixture_ss_lpdf(matrix L, matrix log_theta, array[] int z) {
             lp += log_sum_exp(a);
         }
     }
-
     return lp;
 }
 
 //@laplace
-//@brief LDA log-likelihood from document-word counts
+//@brief LDA log-likelihood from document-word counts (token-level mixture marginalized to word counts).
+//@param Y M x V integer matrix of word counts, one document per row
+//@param Theta M x K matrix, each row a simplex over topics (document-topic distribution)
+//@param Phi K x V matrix, each row a simplex over words (topic-word distribution)
+//@math \sum_{m=1}^{M}\sum_{v=1}^{V} y_{mv}\log\Big(\sum_{k=1}^{K}\theta_{mk}\,\phi_{kv}\Big)
+//@return scalar log-likelihood; multinomial coefficients dropped (don't affect Theta/Phi inference)
+//@example target += lda_lpmf(Y | Theta, Phi);
 real lda_lpmf(array[,] int Y, matrix Theta, matrix Phi){
     int M = size(Y);
     int V = size(Y[1]);
-    
+
     matrix[M, V] P = Theta * Phi;
     real out = 0;
 

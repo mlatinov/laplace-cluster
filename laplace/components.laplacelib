@@ -1,8 +1,12 @@
-
 //Each function returns the N × K matrix L of component log-densities
 
-//@laplace 
-//@brief Square Distance 
+//@laplace
+//@brief Pairwise squared Euclidean distance between observations and cluster means, via the expansion trick (one matrix product instead of an N*K*D loop).
+//@param y N x D data matrix, one observation per row
+//@param mu K x D matrix of cluster means, one mean per row
+//@math \delta_{nk} = \lVert y_n - \mu_k\rVert^2 = \lVert y_n\rVert^2 + \lVert\mu_k\rVert^2 - 2\,y_n\cdot\mu_k
+//@return N x K matrix of squared distances
+//@example matrix[N, K] delta = sq_dist(y, mu);
 matrix sq_dist(matrix y, matrix mu) {
     int N = rows(y);
     int K = rows(mu);
@@ -16,8 +20,14 @@ matrix sq_dist(matrix y, matrix mu) {
     return rep_matrix(rho, K) + rep_matrix(kappa', N) - 2 * y * mu';
 }
 
-//@laplace 
-//@brief Kmeans loglik
+//@laplace
+//@brief Soft k-means component log-densities: unit-shape Gaussian log-density up to a fixed temperature, constants dropped.
+//@param y N x D data matrix
+//@param mu K x D matrix of cluster means
+//@param beta inverse-temperature / precision, beta = 1/sigma^2; beta = 1 recovers plain soft k-means
+//@math L_{nk} = -\frac{\beta}{2}\lVert y_n - \mu_k\rVert^2
+//@return N x K matrix of component log-densities (not a normalized log-density: constants are dropped, so don't compare across families)
+//@example matrix[N, K] L = kmeans_loglik(y, mu, 1.0);
 matrix kmeans_loglik(matrix y, matrix mu, real beta){
     int N = rows(y);
     int K = rows(mu);
@@ -27,8 +37,14 @@ matrix kmeans_loglik(matrix y, matrix mu, real beta){
     return -(beta / 2) * sq;
 }
 
-//@laplace 
-//@brief Spherical loglik
+//@laplace
+//@brief Spherical Gaussian component log-densities: shared shape per cluster, one scale per cluster.
+//@param y N x D data matrix
+//@param mu K x D matrix of cluster means
+//@param sd length-K vector of per-cluster standard deviations
+//@math L_{nk} = -D\log\sigma_k - \frac{\lVert y_n-\mu_k\rVert^2}{2\sigma_k^2} - \frac{D}{2}\log 2\pi
+//@return N x K matrix of component log-densities, D is inferred from cols(y)
+//@example matrix[N, K] L = spherical_loglik(y, mu, sd);
 matrix spherical_loglik(matrix y, matrix mu, vector sd){
     int N = rows(y);
     int K = rows(mu);
@@ -39,14 +55,20 @@ matrix spherical_loglik(matrix y, matrix mu, vector sd){
 
     for(n in 1:N){
         for(k in 1:K){
-            L[n, k] = -D * log(sd[k]) - (sq[n, k] / (2 * square(sd[k]))) - (D / 2) * log(2 * pi());
+            L[n, k] = -D * log(sd[k]) - (sq[n, k] / (2 * square(sd[k]))) - (0.5 * D) * log(2 * pi());
         }
     }
     return L;
 }
 
-//@laplace 
-//@brief Diagonal loglik
+//@laplace
+//@brief Diagonal-covariance Gaussian component log-densities: independent scale per cluster and per feature.
+//@param y N x D data matrix
+//@param mu K x D matrix of cluster means
+//@param S K x D matrix of per-cluster, per-feature standard deviations (not variances)
+//@math L_{nk} = -\frac12\sum_{d=1}^{D}\left[\log(2\pi\sigma_{kd}^2) + \frac{(y_{nd}-\mu_{kd})^2}{\sigma_{kd}^2}\right]
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = diag_loglik(y, mu, S);
 matrix diag_loglik(matrix y, matrix mu, matrix S) {
     int N = rows(y);
     int K = rows(mu);
@@ -66,8 +88,14 @@ matrix diag_loglik(matrix y, matrix mu, matrix S) {
     return L;
 }
 
-//@laplace 
-//@brief Multivariate Normal Cholesky Log Likelihood
+//@laplace
+//@brief Full-covariance Gaussian component log-densities via a per-cluster Cholesky factor.
+//@param y N x D data matrix
+//@param mu K x D matrix of cluster means
+//@param C array of K lower-triangular D x D Cholesky factors, with Sigma_k = C_k * C_k'
+//@math L_{nk} = -\frac{D}{2}\log 2\pi - \sum_{d=1}^{D}\log (C_k)_{dd} - \frac12\lVert C_k^{-1}(y_n-\mu_k)\rVert^2
+//@return N x K matrix of component log-densities
+//@example array[K] matrix[D, D] C; matrix[N, K] L = mvn_chol_loglik(y, mu, C);
 matrix mvn_chol_loglik(matrix y, matrix mu, array[] matrix C){
     int N = rows(y);
     int K = rows(mu);
@@ -79,7 +107,7 @@ matrix mvn_chol_loglik(matrix y, matrix mu, array[] matrix C){
         for (k in 1:K) {
             vector[D] residual;
             vector[D] z;
-            real log_det_C;
+            real log_det_C; // sum of log-diagonal of C[k], i.e. 0.5 * log det(Sigma_k)
 
             // residual
             residual = (y[n] - mu[k])';
@@ -95,8 +123,13 @@ matrix mvn_chol_loglik(matrix y, matrix mu, array[] matrix C){
     return L;
 }
 
-//@laplace 
-//@brief Pois Loglik
+//@laplace
+//@brief Poisson component log-densities, features conditionally independent given the cluster.
+//@param y N x D matrix of non-negative integer counts (stored as real)
+//@param lambda K x D matrix of per-cluster, per-feature rates
+//@math L_{nk} = \sum_{d=1}^{D}\left[y_{nd}\log\lambda_{kd} - \lambda_{kd} - \log\Gamma(y_{nd}+1)\right]
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = pois_lik(y, lambda);
 matrix pois_lik(matrix y, matrix lambda){
     int N = rows(y);
     int D = cols(y);
@@ -119,8 +152,14 @@ matrix pois_lik(matrix y, matrix lambda){
     return L;
 }
 
-//@laplace 
-//@brief Negative Binomial loglik
+//@laplace
+//@brief Negative-binomial (mean/precision) component log-densities, features conditionally independent given the cluster.
+//@param y N x D matrix of non-negative integer counts (stored as real)
+//@param mu K x D matrix of per-cluster, per-feature means
+//@param psi length-K vector of per-cluster precisions (Var = mu + mu^2/psi); as psi -> infinity this approaches pois_lik
+//@math L_{nk} = \sum_{d}\left[\log\Gamma(y_{nd}+\psi_k) - \log\Gamma(\psi_k) - \log\Gamma(y_{nd}+1) + y_{nd}\log\frac{\mu_{kd}}{\mu_{kd}+\psi_k} + \psi_k\log\frac{\psi_k}{\mu_{kd}+\psi_k}\right]
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = negbin_loglik(y, mu, psi);
 matrix negbin_loglik(matrix y, matrix mu, vector psi){
     int N = rows(y);
     int K = num_elements(psi);
@@ -147,8 +186,14 @@ matrix negbin_loglik(matrix y, matrix mu, vector psi){
     return L;
 }
 
-//@laplace 
-//@brief Latent Class loglik
+//@laplace
+//@brief Latent-class (independent Bernoulli item) component log-densities, with support for missing items.
+//@param y N x J binary matrix of item responses
+//@param p K x J matrix of per-cluster item-endorsement probabilities
+//@param m N x J mask matrix (1 = observed, 0 = missing); missing items contribute 0 to the sum
+//@math L_{nk} = \sum_{j=1}^{J} m_{nj}\left[y_{nj}\log\pi_{kj} + (1-y_{nj})\log(1-\pi_{kj})\right]
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = latent_class_loglik(y, p, m);
 matrix latent_class_loglik(matrix y, matrix p, matrix m){
     int N = rows(y);
     int J = cols(y);
@@ -171,8 +216,13 @@ matrix latent_class_loglik(matrix y, matrix p, matrix m){
     return L;
 }
 
-//@laplace 
-//@brief Multinomial loglik
+//@laplace
+//@brief Multinomial (bag-of-words / count-vector) component log-densities, e.g. Naive Bayes document clustering.
+//@param y N x V matrix of non-negative integer counts (stored as real)
+//@param phi K x V matrix of per-cluster word/category probabilities, each row a simplex
+//@math L_{nk} = \sum_{v=1}^{V} y_{nv}\log\phi_{kv} + \log\frac{(\sum_v y_{nv})!}{\prod_v y_{nv}!}
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = multinomial_loglik(y, phi);
 matrix multinomial_loglik(matrix y, matrix phi) {
     int N = rows(y);
     int K = rows(phi);
@@ -203,8 +253,15 @@ matrix multinomial_loglik(matrix y, matrix phi) {
     return L;
 }
 
-//@laplace 
-//@brief Regression loglik
+//@laplace
+//@brief Mixture-of-regressions component log-densities: a separate linear regression per cluster.
+//@param y length-N response vector
+//@param X N x P design matrix (include an intercept column if wanted)
+//@param B P x K matrix of per-cluster regression coefficients
+//@param sd length-K vector of per-cluster residual standard deviations
+//@math L_{nk} = -\log\sigma_k - \frac12\log 2\pi - \frac{(y_n - x_n^{\top}\beta_k)^2}{2\sigma_k^2}
+//@return N x K matrix of component log-densities
+//@example matrix[N, K] L = regression_loglik(y, X, B, sd);
 matrix regression_loglik(vector y, matrix X, matrix B, vector sd){
     int N = num_elements(y);
     int K = cols(B);
