@@ -1,4 +1,0 @@
-[dependencies.cluster]
-git = "https://github.com/mlatinov/laplace-cluster"
-tag = "0.1.0"
-subdir = "laplace"
