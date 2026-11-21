@@ -98,8 +98,8 @@ For a univariate normal mixture, $d = 2$, so $\alpha < 1$ is the sparse regime.
 
 | Form | What it does |
 | --- | --- |
-| `mixture_ss_lpdf(L, log_theta, z)` | Semi-supervised mixture: known labels in `z` contribute directly, `z[n] = 0` marginalizes as usual |
-| `lda_lpmf(Y, Theta, Phi)` | Latent Dirichlet Allocation, marginalized to word counts |
+| `mixture_ss_lpdf(L | log_theta, z)` | Semi-supervised mixture: known labels in `z` contribute directly, `z[n] = 0` marginalizes as usual |
+| `lda_lpmf(Y | Theta, Phi)` | Latent Dirichlet Allocation, marginalized to word counts |
 
 `mixture_ss_lpdf` with every entry of `z` at `0` is exactly `mixture_lpdf`; with every entry known it's supervised Naive Bayes classification.
 
@@ -110,6 +110,8 @@ laplace doc cluster::spherical_loglik
 ```
 
 ## Installation
+
+**Requires the laplace compiler 0.2 or newer.** `cluster`'s public functions are marked with `pub` in its `.laplacelib` sources (there is no `exports` list in its `laplace.toml`), and the manifest declares `laplace = ">=0.2"`. Check your compiler with `laplace --version` and update it with `laplace self-update`. Tags up to `0.1.0` predate this and still build with older compilers.
 
 `cluster` is distributed as a git-hosted Laplace library — there's no published registry entry yet, so it's added by pointing `laplace` (or `cmdlaplacer`, if you're working from R) directly at the repository. The package lives in the repository's `laplace/` subdirectory, so pass it as the subdir.
 
@@ -167,7 +169,7 @@ model {
   matrix[N, K] L = cluster::kmeans_loglik(y, mu, beta);
   vector[K] log_theta = rep_vector(-log(K), K);   // uniform weights
 
-  target += cluster::mixture_lpdf(L, log_theta);
+  target += cluster::mixture_lpdf(L | log_theta);
 }
 
 generated quantities {
@@ -215,7 +217,7 @@ model {
   theta  ~ dirichlet(rep_vector(alpha, K));
 
   matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
-  target += cluster::mixture_lpdf(L, log(theta));
+  target += cluster::mixture_lpdf(L | log(theta));
 }
 
 generated quantities {
@@ -247,7 +249,7 @@ data {
 }
 
 parameters {
-  simplex[V] phi[K];                    // topic-word distributions
+  array[K] simplex[V] phi;              // topic-word distributions
 }
 
 transformed parameters {
@@ -259,14 +261,14 @@ model {
   for (k in 1:K) phi[k] ~ dirichlet(rep_vector(beta, V));
 
   // treat Y as real for multinomial_loglik's matrix signature
-  matrix[N, K] L = cluster::multinomial_loglik(to_matrix(Y), Phi);
+  matrix[M, K] L = cluster::multinomial_loglik(to_matrix(Y), Phi);
   vector[K] log_theta = rep_vector(-log(K), K);
 
-  target += cluster::mixture_lpdf(L, log_theta);
+  target += cluster::mixture_lpdf(L | log_theta);
 }
 ```
 
-Switching to full LDA (a topic per token, not per document) means adding a `Theta` per-document simplex and calling `cluster::lda_lpmf(Y, Theta, Phi)` directly in `model` instead — see `lda_lpmf`'s `@example` via `laplace doc cluster::lda_lpmf`.
+Switching to full LDA (a topic per token, not per document) means adding a `Theta` per-document simplex and calling `cluster::lda_lpmf(Y | Theta, Phi)` directly in `model` instead — see `lda_lpmf`'s `@example` via `laplace doc cluster::lda_lpmf`.
 
 ### From R
 
@@ -286,7 +288,7 @@ fit$draws("z_hat")
 - **`L` is a log-likelihood, not *the* log-likelihood.** `L[n, k]` is how plausible point `n` is under cluster `k` alone. The model's actual log-likelihood only exists after `mixture_lpdf`/`mixture_pointwise` sums over `k`. Don't call a family function and `target +=` it directly — it always goes through Core first.
 - **`kmeans_loglik` drops constants; the other families don't.** Compare `kmeans_loglik` fits against each other, never against `spherical_loglik` or `diag_loglik` fits with `loo` — the additive constant differs.
 - **Vectorized Stan `_lpdf`/`_lpmf` calls sum.** `normal_lpdf(y | mu, sigma)` on a vector returns one scalar. Every family function in this library loops explicitly (or uses a matrix-product identity) specifically to keep the `N x K` shape — don't try to shortcut them with Stan's built-in vectorized forms, you'll lose the per-observation structure the rest of the library needs.
-- **Use `target +=`, not `~`.** As with `laplace-ts`, `cluster::mixture_lpdf(L, log_theta)` is a `target +=` call, not a sampling statement.
+- **Write `_lpdf`/`_lpmf` calls with a bar.** Stan requires `|` after the first argument of any `_lpdf`/`_lpmf` function, library functions included: `target += cluster::mixture_lpdf(L | log_theta);`. The sampling form `L ~ cluster::mixture(log_theta);` also compiles, but `L` is a matrix of log-densities built from parameters, not data, so `target +=` reads more honestly.
 - **Unbounded likelihood spikes.** `spherical_loglik`, `diag_loglik`, and `mvn_chol_loglik` all send `L[n,k] -> +inf` if a component's scale shrinks to zero around a single point. Put a weakly informative prior (or a lower bound) on every scale parameter — `exponential(1)` on `sd` is a reasonable default.
 - **Standardize before using distance-based families.** `sq_dist`, `kmeans_loglik`, and `spherical_loglik` are Euclidean and unit-sensitive. Center and scale continuous features first, or clusters will be dominated by whichever feature happens to have the largest numeric range.
 - **Label switching.** The mixture likelihood is invariant to permuting components, so `mu_k`, `sd_k`, `theta_k` for a specific `k`, and anything from `assign_rng`/`map_assign`, are not safe to average across posterior draws without a fix. `mixture_pointwise` (for `loo`), `coclustering`, and `assignment_entropy` are safe as-is. An `ordered` constraint on one coordinate of `mu` (shown above) is the cheapest fix when clusters separate on that coordinate; post-hoc relabeling is the general one.

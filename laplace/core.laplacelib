@@ -8,7 +8,7 @@
 //@return length-N vector, the pointwise log-likelihood ln for each observation
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example vector[N] ln = cluster::mixture_pointwise(L, log_Theta); // covariate-dependent weights
-vector mixture_pointwise(matrix L, matrix log_theta){
+pub vector mixture_pointwise(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -32,7 +32,7 @@ vector mixture_pointwise(matrix L, matrix log_theta){
 //@return length-N vector, the pointwise log-likelihood ln for each observation
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example vector[N] ln = cluster::mixture_pointwise(L, log(theta));
-vector mixture_pointwise(matrix L, vector log_theta){
+pub vector mixture_pointwise(matrix L, vector log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -55,8 +55,8 @@ vector mixture_pointwise(matrix L, vector log_theta){
 //@math \log p(\mathbf Y \mid \theta, \phi) = \sum_{n=1}^{N} \log\sum_{k=1}^{K}\exp\big(\log\theta_{nk} + L_{nk}\big)
 //@return scalar total log-likelihood, sum of mixture_pointwise(L, log_theta)
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
-//@example target += cluster::mixture_lpdf(L, log_Theta);
-real mixture_lpdf(matrix L, matrix log_theta){
+//@example target += cluster::mixture_lpdf(L | log_Theta);
+pub real mixture_lpdf(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -79,8 +79,8 @@ real mixture_lpdf(matrix L, matrix log_theta){
 //@math \log p(\mathbf Y \mid \theta, \phi) = \sum_{n=1}^{N} \log\sum_{k=1}^{K}\exp\big(\log\theta_k + L_{nk}\big)
 //@return scalar total log-likelihood, sum of mixture_pointwise(L, log_theta)
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
-//@example target += cluster::mixture_lpdf(L, log(theta));
-real mixture_lpdf(matrix L, vector log_theta){
+//@example target += cluster::mixture_lpdf(L | log(theta));
+pub real mixture_lpdf(matrix L, vector log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -104,7 +104,7 @@ real mixture_lpdf(matrix L, vector log_theta){
 //@return N x K matrix, each row a simplex over the K clusters
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example matrix[N, K] R = cluster::responsibilities(L, log_Theta);
-matrix responsibilities(matrix L, matrix log_theta) {
+pub matrix responsibilities(matrix L, matrix log_theta) {
     int K = cols(L);
     int N = rows(L);
 
@@ -130,7 +130,7 @@ matrix responsibilities(matrix L, matrix log_theta) {
 //@return N x K matrix, each row a simplex over the K clusters
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example matrix[N, K] R = cluster::responsibilities(L, log(theta));
-matrix responsibilities(matrix L, vector log_theta) {
+pub matrix responsibilities(matrix L, vector log_theta) {
     int K = cols(L);
     int N = rows(L);
 
@@ -155,7 +155,7 @@ matrix responsibilities(matrix L, vector log_theta) {
 //@return N x K matrix of log responsibilities, each row log-sums to 0
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example matrix[N, K] log_R = cluster::log_responsibilities(L, log_Theta);
-matrix log_responsibilities(matrix L, matrix log_theta){
+pub matrix log_responsibilities(matrix L, matrix log_theta){
     int K = cols(L);
     int N = rows(L);
 
@@ -180,7 +180,7 @@ matrix log_responsibilities(matrix L, matrix log_theta){
 //@return N x K matrix of log responsibilities, each row log-sums to 0
 //@example matrix[N, K] L = cluster::spherical_loglik(y, mu, sd);
 //@example matrix[N, K] log_R = cluster::log_responsibilities(L, log(theta));
-matrix log_responsibilities(matrix L, vector log_theta){
+pub matrix log_responsibilities(matrix L, vector log_theta){
     int K = cols(L);
     int N = rows(L);
 
